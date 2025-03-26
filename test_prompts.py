@@ -272,16 +272,17 @@ def update_excel_results(excel_file_path, result_df):
 
 def run_tests(excel_file_path, jsonl_file_path):
     """
-    Main function to run the tests
+    Main function to run the tests.
+    Reads prompts from the Excel file and test cases (images/expected answers) from the JSONL file,
+    sends API requests for each prompt-test case pair, extracts and calculates precision,
+    then writes all the results back to the Excel file.
     """
     print("Starting test execution...")
     
     # Read prompts from Excel
-    prompt_df, result_df = read_excel_prompts(excel_file_path)
-    
-    # Ensure result_df has rows to update; if it's empty, initialize it with IDs from prompt_df
-    if result_df.empty:
-        result_df = prompt_df[['ID']].copy()
+    prompt_df, _ = read_excel_prompts(excel_file_path)
+    # Always reinitialize result_df with all IDs from prompt_df
+    result_df = prompt_df[['ID']].copy()
     
     # Read test cases (images and expected answers) from JSONL
     test_cases = read_jsonl_data(jsonl_file_path)
@@ -303,44 +304,45 @@ def run_tests(excel_file_path, jsonl_file_path):
             print(f"  Testing with image {i+1}/{len(test_cases)}: {image_url}")
             
             # Send API request with prompt and image
-            print(f"  Sending API request...")
+            print("  Sending API request...")
             response = send_api_request(prompt_text, image_url)
             
             # Extract the final answer using regex
-            print(f"  Extracting final answer...")
+            print("  Extracting final answer...")
             extracted_result = extract_final_answer(response)
             
-            # Calculate precision
+            # Calculate precision score
             precision = calculate_precision(extracted_result, expected_answer)
             
             print(f"  Extracted: {extracted_result}")
             print(f"  Expected: {expected_answer}")
             print(f"  Precision: {precision}")
             
-            # Determine column names for this test case
+            # Define column names for the test case result
             result_column = f"Result_{i+1}"
             precision_column = f"Precision_{i+1}"
             
-            # Ensure columns exist in result_df
+            # Ensure that the columns exist in the result dataframe
             if result_column not in result_df.columns:
                 result_df[result_column] = None
             if precision_column not in result_df.columns:
                 result_df[precision_column] = None
             
-            # Update result in dataframe
+            # Update the result dataframe for the current prompt
             result_df.loc[result_df['ID'] == prompt_id, result_column] = extracted_result
             result_df.loc[result_df['ID'] == prompt_id, precision_column] = precision
             
             # Rate limit to avoid API throttling
             sleep(1)
     
-    # Update Excel with results
+    # Write the updated results back to the Excel file
     update_excel_results(excel_file_path, result_df)
     
     print("\nTest Execution Summary")
     print("======================")
     print(f"Total tests: {len(prompt_df) * len(test_cases)}")
     print(f"All results have been updated in {excel_file_path}")
+
 
 if __name__ == "__main__":
     excel_file_path = r"C:\Users\osabidi\sandbox\prompts_and_results.xlsx"  # Update with your Excel file path
